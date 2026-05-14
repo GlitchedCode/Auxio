@@ -49,6 +49,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.oxycblt.auxio.image.ImageSettings
 import org.oxycblt.auxio.music.MusicRepository
+import org.oxycblt.auxio.playback.KarmaSettings
 import org.oxycblt.auxio.playback.PlaybackSettings
 import org.oxycblt.auxio.playback.persist.PersistenceRepository
 import org.oxycblt.auxio.playback.replaygain.ReplayGainAudioProcessor
@@ -61,6 +62,7 @@ import org.oxycblt.auxio.playback.state.RawQueue
 import org.oxycblt.auxio.playback.state.RepeatMode
 import org.oxycblt.auxio.playback.state.ShuffleMode
 import org.oxycblt.auxio.playback.state.StateAck
+import org.oxycblt.musikr.KarmaPlaylist
 import org.oxycblt.musikr.MusicParent
 import org.oxycblt.musikr.Song
 import timber.log.Timber as L
@@ -76,6 +78,7 @@ class ExoPlaybackStateHolder(
     private val replayGainProcessor: ReplayGainAudioProcessor,
     private val musicRepository: MusicRepository,
     private val imageSettings: ImageSettings,
+    private val karmaSettings: KarmaSettings,
 ) :
     PlaybackStateHolder,
     Player.Listener,
@@ -277,6 +280,21 @@ class ExoPlaybackStateHolder(
     }
 
     override fun next() {
+        // Capture karma-relevant state before seeking.
+        val skippedSong = playbackManager.currentSong
+        val posMs = player.currentPosition
+        val durMs = player.duration.takeIf { it != C.TIME_UNSET } ?: Long.MAX_VALUE
+        (parent as? KarmaPlaylist)?.let { kp ->
+            if (skippedSong != null) {
+                val weight = when {
+                    posMs < karmaSettings.earlySkipThresholdMs -> karmaSettings.earlySkipWeight
+                    posMs > durMs - karmaSettings.lateSkipThresholdMs -> karmaSettings.lateSkipWeight
+                    else -> karmaSettings.midSkipWeight
+                }
+                if (weight != 0) applyKarmaDelta(kp, skippedSong, weight)
+            }
+        }
+
         // Replicate the old pseudo-circular queue behavior when no repeat option is implemented.
         // Basically, you can't skip back and wrap around the queue, but you can skip forward and
         // wrap around the queue, albeit playback will be paused.
@@ -499,6 +517,13 @@ class ExoPlaybackStateHolder(
         super.onMediaItemTransition(mediaItem, reason)
 
         if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+            // currentSong is still the completed song before ack(IndexMoved) updates the index.
+            val completedSong = playbackManager.currentSong
+            (parent as? KarmaPlaylist)?.let { kp ->
+                if (completedSong != null) {
+                    applyKarmaDelta(kp, completedSong, karmaSettings.completionWeight)
+                }
+            }
             playbackManager.ack(this, StateAck.IndexMoved)
         }
     }
@@ -527,6 +552,21 @@ class ExoPlaybackStateHolder(
         L.e(error.stackTraceToString())
         player.prepare()
         playbackManager.next()
+    }
+
+    private fun applyKarmaDelta(playlist: KarmaPlaylist, song: Song, delta: Int) {
+        saveScope.launch {
+            val newKarma = musicRepository.adjustKarma(playlist, song, delta)
+            if (newKarma == null) {
+                // Song was removed from the playlist; also evict it from the active queue.
+                withContext(Dispatchers.Main) {
+                    val idx = playbackManager.queue.indexOf(song)
+                    if (idx >= 0) {
+                        playbackManager.removeQueueItem(idx)
+                    }
+                }
+            }
+        }
     }
 
     private fun broadcastAudioEffectAction(event: String) {
@@ -652,6 +692,7 @@ class ExoPlaybackStateHolder(
         private val replayGainProcessor: ReplayGainAudioProcessor,
         private val musicRepository: MusicRepository,
         private val imageSettings: ImageSettings,
+        private val karmaSettings: KarmaSettings,
     ) {
         fun create(): ExoPlaybackStateHolder {
             // Since Auxio is a music player, only specify an audio renderer to save
@@ -696,6 +737,7 @@ class ExoPlaybackStateHolder(
                 replayGainProcessor,
                 musicRepository,
                 imageSettings,
+                karmaSettings,
             )
         }
     }

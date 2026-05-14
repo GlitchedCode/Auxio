@@ -41,6 +41,7 @@ import org.oxycblt.auxio.util.inflater
 import org.oxycblt.musikr.Album
 import org.oxycblt.musikr.Artist
 import org.oxycblt.musikr.Genre
+import org.oxycblt.musikr.KarmaPlaylist
 import org.oxycblt.musikr.Playlist
 import org.oxycblt.musikr.Song
 
@@ -286,12 +287,14 @@ class PlaylistViewHolder private constructor(private val binding: ItemParentBind
         listener.bind(playlist, this, menuButton = binding.parentMenu)
         binding.parentImage.bind(playlist)
         binding.parentName.text = playlist.name.resolve(binding.context)
-        binding.parentInfo.text =
+        val songCount =
             if (playlist.songs.isNotEmpty()) {
                 binding.context.getPlural(R.plurals.fmt_song_count, playlist.songs.size)
             } else {
                 binding.context.getString(R.string.def_song_count)
             }
+        binding.parentInfo.text =
+            if (playlist is KarmaPlaylist) "$songCount  ·  ♥" else songCount
     }
 
     override fun updatePlayingIndicator(isActive: Boolean, isPlaying: Boolean) {

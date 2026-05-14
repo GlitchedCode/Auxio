@@ -34,4 +34,6 @@ interface PlaybackModule {
     fun stateManager(playbackManager: PlaybackStateManagerImpl): PlaybackStateManager
 
     @Binds fun settings(playbackSettings: PlaybackSettingsImpl): PlaybackSettings
+
+    @Binds fun karmaSettings(karmaSettings: KarmaSettingsImpl): KarmaSettings
 }

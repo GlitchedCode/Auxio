@@ -28,6 +28,8 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Transaction
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import org.oxycblt.musikr.Music
 
 /**
@@ -36,21 +38,62 @@ import org.oxycblt.musikr.Music
  * @author Alexander Capehart (OxygenCobalt)
  */
 @Database(
-    entities = [PlaylistInfo::class, PlaylistSong::class, PlaylistSongCrossRef::class],
-    version = 30,
+    entities = [
+        PlaylistInfo::class,
+        PlaylistSong::class,
+        PlaylistSongCrossRef::class,
+        KarmaPlaylistInfo::class,
+        KarmaPlaylistSongCrossRef::class,
+    ],
+    version = 31,
     exportSchema = false,
 )
 @TypeConverters(Music.UID.TypeConverters::class)
 internal abstract class PlaylistDatabase : RoomDatabase() {
     abstract fun playlistDao(): PlaylistDao
 
+    abstract fun karmaPlaylistDao(): KarmaPlaylistDao
+
     companion object {
+        private val MIGRATION_30_31 =
+            object : Migration(30, 31) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS KarmaPlaylistInfo (
+                            playlistUid TEXT NOT NULL PRIMARY KEY,
+                            name TEXT NOT NULL
+                        )
+                        """.trimIndent()
+                    )
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS KarmaPlaylistSongCrossRef (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                            playlistUid TEXT NOT NULL,
+                            songUid TEXT NOT NULL,
+                            karma INTEGER NOT NULL DEFAULT 10
+                        )
+                        """.trimIndent()
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS index_KarmaPlaylistSongCrossRef_playlistUid " +
+                            "ON KarmaPlaylistSongCrossRef (playlistUid)"
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS index_KarmaPlaylistSongCrossRef_songUid " +
+                            "ON KarmaPlaylistSongCrossRef (songUid)"
+                    )
+                }
+            }
+
         fun from(context: Context) =
             Room.databaseBuilder(
                     context.applicationContext,
                     PlaylistDatabase::class.java,
                     "user_music.db",
                 )
+                .addMigrations(MIGRATION_30_31)
                 .fallbackToDestructiveMigration(true)
                 .build()
     }

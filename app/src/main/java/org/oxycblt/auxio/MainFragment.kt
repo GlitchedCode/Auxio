@@ -393,6 +393,10 @@ class MainFragment :
                 L.d("Importing playlist")
                 musicModel.importPlaylist()
             }
+            R.id.action_new_karma_playlist -> {
+                L.d("Creating karma playlist")
+                musicModel.createKarmaPlaylist()
+            }
             else -> {}
         }
         // Returning false to close the speed dial results in no animation, manually close instead.

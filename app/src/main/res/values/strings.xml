@@ -83,7 +83,9 @@
 
     <string name="lbl_playlist">Playlist</string>
     <string name="lbl_playlists">Playlists</string>
+    <string name="lbl_karma_playlist">Karma playlist</string>
     <string name="lbl_new_playlist">New playlist</string>
+    <string name="lbl_new_karma_playlist">New karma playlist</string>
     <string name="lbl_empty_playlist">Empty playlist</string>
     <string name="lbl_imported_playlist">Imported playlist</string>
     <string name="lbl_import">Import</string>
@@ -198,6 +200,7 @@
     <string name="lng_queue_added">Added to queue</string>
     <string name="lng_play_next">Song will play next</string>
     <string name="lng_playlist_created">Playlist created</string>
+    <string name="lng_karma_playlist_created">Karma playlist created</string>
     <string name="lng_playlist_imported">Playlist imported</string>
     <string name="lng_playlist_renamed">Playlist renamed</string>
     <string name="lng_playlist_exported">Playlist exported</string>

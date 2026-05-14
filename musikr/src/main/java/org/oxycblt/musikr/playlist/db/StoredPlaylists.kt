@@ -21,6 +21,7 @@ package org.oxycblt.musikr.playlist.db
 import android.content.Context
 import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.Song
+import org.oxycblt.musikr.playlist.KarmaPlaylistFile
 import org.oxycblt.musikr.playlist.PlaylistFile
 import org.oxycblt.musikr.playlist.PlaylistHandle
 import org.oxycblt.musikr.playlist.SongPointer
@@ -30,13 +31,22 @@ abstract class StoredPlaylists {
 
     internal abstract suspend fun read(): List<PlaylistFile>
 
+    internal abstract suspend fun newKarma(name: String, songs: List<Song>): KarmaStoredPlaylistHandle
+
+    internal abstract suspend fun readKarma(): List<KarmaPlaylistFile>
+
     companion object {
-        fun from(context: Context): StoredPlaylists =
-            StoredPlaylistsImpl(PlaylistDatabase.from(context).playlistDao())
+        fun from(context: Context): StoredPlaylists {
+            val db = PlaylistDatabase.from(context)
+            return StoredPlaylistsImpl(db.playlistDao(), db.karmaPlaylistDao())
+        }
     }
 }
 
-private class StoredPlaylistsImpl(private val playlistDao: PlaylistDao) : StoredPlaylists() {
+private class StoredPlaylistsImpl(
+    private val playlistDao: PlaylistDao,
+    private val karmaDao: KarmaPlaylistDao,
+) : StoredPlaylists() {
     override suspend fun new(name: String, songs: List<Song>): PlaylistHandle {
         val info = PlaylistInfo(Music.UID.auxio(Music.UID.Item.PLAYLIST), name)
         playlistDao.insertPlaylist(RawPlaylist(info, songs.map { PlaylistSong(it.uid) }))
@@ -49,6 +59,27 @@ private class StoredPlaylistsImpl(private val playlistDao: PlaylistDao) : Stored
                 it.playlistInfo.name,
                 it.songs.map { song -> SongPointer.UID(song.songUid) },
                 StoredPlaylistHandle(it.playlistInfo, playlistDao),
+            )
+        }
+
+    override suspend fun newKarma(name: String, songs: List<Song>): KarmaStoredPlaylistHandle {
+        val info = KarmaPlaylistInfo(Music.UID.auxio(Music.UID.Item.PLAYLIST), name)
+        karmaDao.insertKarmaPlaylist(
+            RawKarmaPlaylist(
+                info,
+                songs.map { KarmaPlaylistSongCrossRef(playlistUid = info.playlistUid, songUid = it.uid) },
+            )
+        )
+        return KarmaStoredPlaylistHandle(info, karmaDao)
+    }
+
+    override suspend fun readKarma(): List<KarmaPlaylistFile> =
+        karmaDao.readRawKarmaPlaylists().map { raw ->
+            KarmaPlaylistFile(
+                name = raw.playlistInfo.name,
+                songPointers = raw.songs.map { SongPointer.UID(it.songUid) },
+                karmaMap = raw.songs.associate { it.songUid to it.karma },
+                handle = KarmaStoredPlaylistHandle(raw.playlistInfo, karmaDao),
             )
         }
 }

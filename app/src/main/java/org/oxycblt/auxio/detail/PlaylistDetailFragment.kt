@@ -47,6 +47,7 @@ import org.oxycblt.auxio.util.context
 import org.oxycblt.auxio.util.getPlural
 import org.oxycblt.auxio.util.navigateSafe
 import org.oxycblt.auxio.util.showToast
+import org.oxycblt.musikr.KarmaPlaylist
 import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.MusicParent
 import org.oxycblt.musikr.Playlist
@@ -221,7 +222,10 @@ class PlaylistDetailFragment :
             binding.detailCover.bind(playlist)
         }
 
-        binding.detailType.text = binding.context.getString(R.string.lbl_playlist)
+        binding.detailType.text = binding.context.getString(
+            if (playlist is KarmaPlaylist) R.string.lbl_karma_playlist else R.string.lbl_playlist
+        )
+        playlistListAdapter.setKarmaMap((playlist as? KarmaPlaylist)?.karmaMap)
         binding.detailName.text = playlist.name.resolve(binding.context)
         // Nothing about a playlist is applicable to the sub-head text.
         binding.detailSubhead.isVisible = false
@@ -390,7 +394,8 @@ class PlaylistDetailFragment :
                         decision.songs.map { it.uid }.toTypedArray()
                     )
                 }
-                is PlaylistDecision.New -> error("Unexpected playlist decision $decision")
+                is PlaylistDecision.New,
+                is PlaylistDecision.NewKarma -> error("Unexpected playlist decision $decision")
             }
         findNavController().navigateSafe(directions)
     }

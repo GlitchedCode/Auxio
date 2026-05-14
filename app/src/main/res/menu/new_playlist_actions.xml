@@ -8,4 +8,8 @@
         android:id="@+id/action_new_playlist"
         android:icon="@drawable/ic_playlist_24"
         android:title="@string/lbl_empty_playlist" />
+    <item
+        android:id="@+id/action_new_karma_playlist"
+        android:icon="@drawable/ic_playlist_24"
+        android:title="@string/lbl_new_karma_playlist" />
 </menu>

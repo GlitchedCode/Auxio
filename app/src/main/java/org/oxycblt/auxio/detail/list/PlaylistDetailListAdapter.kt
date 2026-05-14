@@ -45,6 +45,8 @@ import org.oxycblt.auxio.music.resolveNames
 import org.oxycblt.auxio.util.context
 import org.oxycblt.auxio.util.getAttrColorCompat
 import org.oxycblt.auxio.util.inflater
+import org.oxycblt.musikr.KarmaPlaylist
+import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.Playlist
 import org.oxycblt.musikr.Song
 import timber.log.Timber as L
@@ -59,6 +61,14 @@ import timber.log.Timber as L
 class PlaylistDetailListAdapter(private val listener: Listener) :
     DetailListAdapter(listener, DIFF_CALLBACK) {
     private var isEditing = false
+    /** Non-null when the current playlist is a [KarmaPlaylist]. Maps song UID → karma value. */
+    private var karmaMap: Map<Music.UID, Int>? = null
+
+    /** Update the karma map. Pass null to hide karma indicators (normal playlist). */
+    fun setKarmaMap(map: Map<Music.UID, Int>?) {
+        karmaMap = map
+        notifyItemRangeChanged(0, currentList.size, PAYLOAD_KARMA_CHANGED)
+    }
 
     override fun getItemViewType(position: Int) =
         when (getItem(position)) {
@@ -84,8 +94,16 @@ class PlaylistDetailListAdapter(private val listener: Listener) :
         if (payloads.isEmpty()) {
             when (val item = getItem(position)) {
                 is EditHeader -> (holder as EditHeaderViewHolder).bind(item, listener)
-                is Song -> (holder as PlaylistSongViewHolder).bind(item, listener)
+                is Song ->
+                    (holder as PlaylistSongViewHolder).bind(
+                        item,
+                        listener,
+                        karmaMap?.get(item.uid),
+                    )
             }
+        } else if (PAYLOAD_KARMA_CHANGED in payloads && holder is PlaylistSongViewHolder) {
+            val item = getItem(position)
+            if (item is Song) holder.updateKarma(karmaMap?.get(item.uid))
         }
 
         if (holder is ViewHolder) {
@@ -124,6 +142,7 @@ class PlaylistDetailListAdapter(private val listener: Listener) :
 
     private companion object {
         val PAYLOAD_EDITING_CHANGED = Any()
+        val PAYLOAD_KARMA_CHANGED = Any()
 
         val DIFF_CALLBACK =
             object : SimpleDiffCallback<Item>() {
@@ -227,6 +246,7 @@ private constructor(private val binding: ItemEditableSongBinding) :
     SelectionIndicatorAdapter.ViewHolder(binding.root),
     MaterialDragCallback.ViewHolder,
     PlaylistDetailListAdapter.ViewHolder {
+    private var currentSong: Song? = null
     override val enabled: Boolean
         get() = binding.songDragHandle.isVisible
 
@@ -256,15 +276,22 @@ private constructor(private val binding: ItemEditableSongBinding) :
      * @param listener A [PlaylistDetailListAdapter.Listener] to bind interactions to.
      */
     @SuppressLint("ClickableViewAccessibility")
-    fun bind(song: Song, listener: PlaylistDetailListAdapter.Listener) {
+    fun bind(song: Song, listener: PlaylistDetailListAdapter.Listener, karma: Int?) {
+        currentSong = song
         listener.bind(song, this, binding.interactBody, menuButton = binding.songMenu)
         listener.bind(this, binding.songDragHandle)
         binding.songAlbumCover.bind(song)
         binding.songName.text = song.name.resolve(binding.context)
-        binding.songInfo.text = song.artists.resolveNames(binding.context)
+        updateKarma(karma)
         // Not swiping this ViewHolder if it's being re-bound, ensure that the background is
         // not visible. See MaterialDragCallback for why this is done.
         binding.background.isInvisible = true
+    }
+
+    fun updateKarma(karma: Int?) {
+        val artists = currentSong?.artists?.resolveNames(binding.context) ?: ""
+        binding.songInfo.text =
+            if (karma != null) "$artists  ·  ♥ $karma" else artists
     }
 
     override fun updateSelectionIndicator(isSelected: Boolean) {

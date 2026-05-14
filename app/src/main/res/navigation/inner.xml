@@ -64,6 +64,9 @@
             android:id="@+id/new_playlist"
             app:destination="@id/new_playlist_dialog" />
         <action
+            android:id="@+id/new_karma_playlist"
+            app:destination="@id/new_karma_playlist_dialog" />
+        <action
             android:id="@+id/rename_playlist"
             app:destination="@id/rename_playlist_dialog" />
         <action
@@ -424,6 +427,12 @@
             android:name="reason"
             app:argType="org.oxycblt.auxio.music.PlaylistDecision$New$Reason" />
     </dialog>
+
+    <dialog
+        android:id="@+id/new_karma_playlist_dialog"
+        android:name="org.oxycblt.auxio.music.decision.NewKarmaPlaylistDialog"
+        android:label="new_karma_playlist_dialog"
+        tools:layout="@layout/dialog_playlist_name" />
 
     <dialog
         android:id="@+id/rename_playlist_dialog"

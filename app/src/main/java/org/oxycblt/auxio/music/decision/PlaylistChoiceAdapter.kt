@@ -28,6 +28,7 @@ import org.oxycblt.auxio.list.recycler.DialogRecyclerView
 import org.oxycblt.auxio.music.resolve
 import org.oxycblt.auxio.util.context
 import org.oxycblt.auxio.util.inflater
+import org.oxycblt.musikr.KarmaPlaylist
 
 /**
  * A [FlexibleListAdapter] that displays a list of [PlaylistChoice] options to select from in
@@ -61,7 +62,8 @@ class PlaylistChoiceViewHolder private constructor(private val binding: ItemPick
             bind(choice.playlist)
             isActivated = choice.alreadyAdded
         }
-        binding.pickerName.text = choice.playlist.name.resolve(binding.context)
+        val name = choice.playlist.name.resolve(binding.context)
+        binding.pickerName.text = if (choice.playlist is KarmaPlaylist) "$name  ♥" else name
     }
 
     companion object {

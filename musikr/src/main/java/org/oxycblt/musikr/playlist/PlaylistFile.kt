@@ -20,11 +20,20 @@ package org.oxycblt.musikr.playlist
 
 import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.Song
+import org.oxycblt.musikr.playlist.db.KarmaStoredPlaylistHandle
 
 internal data class PlaylistFile(
     val name: String,
     val songPointers: List<SongPointer>,
     val handle: PlaylistHandle,
+)
+
+internal data class KarmaPlaylistFile(
+    val name: String,
+    val songPointers: List<SongPointer>,
+    /** Karma value per song UID. Songs absent from this map are treated as having max karma. */
+    val karmaMap: Map<Music.UID, Int>,
+    val handle: KarmaStoredPlaylistHandle,
 )
 
 internal sealed interface SongPointer {

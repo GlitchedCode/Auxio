@@ -381,6 +381,10 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
                         decision.songs.map { it.uid }.toTypedArray()
                     )
                 }
+                is PlaylistDecision.NewKarma -> {
+                    L.d("Creating new karma playlist")
+                    HomeFragmentDirections.newKarmaPlaylist()
+                }
             }
         findNavController().navigateSafe(directions)
     }

@@ -31,11 +31,12 @@ import org.oxycblt.musikr.graph.MusicGraph
 import org.oxycblt.musikr.graph.PlaylistVertex
 import org.oxycblt.musikr.graph.SongVertex
 import org.oxycblt.musikr.graph.Vertex
+import org.oxycblt.musikr.playlist.SongPointer
 import org.oxycblt.musikr.playlist.db.StoredPlaylists
 import org.oxycblt.musikr.playlist.interpret.PlaylistInterpreter
 
 internal interface LibraryFactory {
-    fun create(
+    suspend fun create(
         graph: MusicGraph,
         storedPlaylists: StoredPlaylists,
         playlistInterpreter: PlaylistInterpreter,
@@ -47,7 +48,7 @@ internal interface LibraryFactory {
 }
 
 private class LibraryFactoryImpl() : LibraryFactory {
-    override fun create(
+    override suspend fun create(
         graph: MusicGraph,
         storedPlaylists: StoredPlaylists,
         playlistInterpreter: PlaylistInterpreter,
@@ -72,12 +73,28 @@ private class LibraryFactoryImpl() : LibraryFactory {
             graph.playlistVertex.mapTo(mutableSetOf()) { vertex ->
                 PlaylistImpl(PlaylistVertexCore(vertex))
             }
+
+        // Load karma playlists separately; resolve song UIDs against the already-built song map.
+        val songUidMap = songs.associateBy { it.uid }
+        val karmaPlaylists =
+            storedPlaylists.readKarma().mapTo(mutableSetOf()) { file ->
+                val resolvedSongs =
+                    file.songPointers.mapNotNull { ptr ->
+                        when (ptr) {
+                            is SongPointer.UID -> songUidMap[ptr.uid]
+                        }
+                    }
+                val postPlaylist = playlistInterpreter.interpret(file.name, file.handle)
+                KarmaPlaylistImpl(postPlaylist, resolvedSongs, file.karmaMap, file.handle)
+            }
+
         return LibraryImpl(
             songs,
             albums,
             artists,
             genres,
             playlists,
+            karmaPlaylists,
             storedPlaylists,
             playlistInterpreter,
         )

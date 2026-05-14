@@ -360,7 +360,8 @@ class SearchFragment : ListFragment<Music, FragmentSearchBinding>() {
                         decision.songs.map { it.uid }.toTypedArray()
                     )
                 }
-                is PlaylistDecision.New -> {
+                is PlaylistDecision.New,
+                is PlaylistDecision.NewKarma -> {
                     error("Unexpected decision $decision")
                 }
             }

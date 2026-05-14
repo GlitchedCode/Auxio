@@ -29,6 +29,7 @@ import org.oxycblt.musikr.Artist
 import org.oxycblt.musikr.Genre
 import org.oxycblt.musikr.Playlist
 import org.oxycblt.musikr.Song
+import org.oxycblt.musikr.KarmaPlaylist
 import timber.log.Timber as L
 
 interface HomeGenerator {
@@ -170,8 +171,10 @@ private class HomeGeneratorImpl(
         musicRepository.library?.let { listSettings.genreSort.genres(it.genres) } ?: emptyList()
 
     override fun playlists() =
-        musicRepository.library?.let { listSettings.playlistSort.playlists(it.playlists) }
-            ?: emptyList()
+        musicRepository.library?.let { library ->
+            val all: Collection<Playlist> = library.playlists + library.karmaPlaylists
+            listSettings.playlistSort.playlists(all)
+        } ?: emptyList()
 
     override fun tabs() = homeSettings.homeTabs.filterIsInstance<Tab.Visible>().map { it.type }
 }

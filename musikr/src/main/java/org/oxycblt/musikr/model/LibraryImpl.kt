@@ -18,11 +18,13 @@
  
 package org.oxycblt.musikr.model
 
+import org.oxycblt.musikr.KarmaPlaylist
 import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.MutableLibrary
 import org.oxycblt.musikr.Playlist
 import org.oxycblt.musikr.Song
 import org.oxycblt.musikr.fs.Path
+import org.oxycblt.musikr.playlist.db.KarmaPlaylistSongCrossRef
 import org.oxycblt.musikr.playlist.db.StoredPlaylists
 import org.oxycblt.musikr.playlist.interpret.PlaylistInterpreter
 import org.oxycblt.musikr.playlist.interpret.PrePlaylistInfo
@@ -33,6 +35,7 @@ internal data class LibraryImpl(
     override val artists: Set<ArtistImpl>,
     override val genres: Set<GenreImpl>,
     override val playlists: Set<PlaylistImpl>,
+    override val karmaPlaylists: Set<KarmaPlaylistImpl>,
     private val storedPlaylists: StoredPlaylists,
     private val playlistInterpreter: PlaylistInterpreter,
 ) : MutableLibrary {
@@ -43,6 +46,7 @@ internal data class LibraryImpl(
     private val artistUidMap = artists.associateBy { it.uid }
     private val genreUidMap = genres.associateBy { it.uid }
     private val playlistUidMap = playlists.associateBy { it.uid }
+    private val karmaPlaylistUidMap = karmaPlaylists.associateBy { it.uid }
 
     override fun empty() = songs.isEmpty()
 
@@ -58,9 +62,12 @@ internal data class LibraryImpl(
 
     override fun findGenre(uid: Music.UID) = genreUidMap[uid]
 
-    override fun findPlaylist(uid: Music.UID) = playlistUidMap[uid]
+    override fun findPlaylist(uid: Music.UID): Playlist? =
+        playlistUidMap[uid] ?: karmaPlaylistUidMap[uid]
 
     override fun findPlaylistByName(name: String) = playlists.find { it.name.raw == name }
+
+    override fun findKarmaPlaylist(uid: Music.UID): KarmaPlaylist? = karmaPlaylistUidMap[uid]
 
     override suspend fun createPlaylist(name: String, songs: List<Song>): MutableLibrary {
         val handle = storedPlaylists.new(name, songs)
@@ -112,6 +119,57 @@ internal data class LibraryImpl(
             }
         playlistImpl.core.prePlaylist.handle.delete()
         return copy(playlists = playlists - playlistImpl)
+    }
+
+    override suspend fun createKarmaPlaylist(name: String, songs: List<Song>): MutableLibrary {
+        val handle = storedPlaylists.newKarma(name, songs)
+        val postPlaylist = playlistInterpreter.interpret(name, handle)
+        val karmaMap = songs.associate { it.uid to KarmaPlaylistSongCrossRef.MAX_KARMA }
+        val playlist = KarmaPlaylistImpl(postPlaylist, songs, karmaMap, handle)
+        return copy(karmaPlaylists = karmaPlaylists + playlist)
+    }
+
+    override suspend fun deleteKarmaPlaylist(playlist: KarmaPlaylist): MutableLibrary {
+        val impl =
+            requireNotNull(karmaPlaylistUidMap[playlist.uid]) {
+                "Karma playlist to delete is not in this library"
+            }
+        impl.handle.delete()
+        return copy(karmaPlaylists = karmaPlaylists - impl)
+    }
+
+    override suspend fun addToKarmaPlaylist(
+        playlist: KarmaPlaylist,
+        songs: List<Song>,
+    ): MutableLibrary {
+        val impl =
+            requireNotNull(karmaPlaylistUidMap[playlist.uid]) {
+                "Karma playlist to add to is not in this library"
+            }
+        impl.handle.add(songs)
+        val newSongs = impl.songs + songs
+        val newKarmaMap = impl.karmaMap + songs.associate { it.uid to KarmaPlaylistSongCrossRef.MAX_KARMA }
+        val newImpl = KarmaPlaylistImpl(impl.postPlaylist, newSongs, newKarmaMap, impl.handle)
+        return copy(karmaPlaylists = karmaPlaylists - impl + newImpl)
+    }
+
+    override suspend fun adjustKarma(
+        playlist: KarmaPlaylist,
+        song: Song,
+        delta: Int,
+    ): Pair<MutableLibrary, Int?> {
+        val impl =
+            requireNotNull(karmaPlaylistUidMap[playlist.uid]) {
+                "Karma playlist not in this library"
+            }
+        val newKarmaValue = impl.handle.adjustKarma(song, delta)
+        val songRemoved = newKarmaValue == null
+        val newSongs = if (songRemoved) impl.songs.filter { it.uid != song.uid } else impl.songs
+        val newKarmaMap =
+            if (songRemoved) impl.karmaMap - song.uid
+            else impl.karmaMap + (song.uid to newKarmaValue!!)
+        val newImpl = KarmaPlaylistImpl(impl.postPlaylist, newSongs, newKarmaMap, impl.handle)
+        return copy(karmaPlaylists = karmaPlaylists - impl + newImpl) to newKarmaValue
     }
 
     private class NewPlaylistCore(

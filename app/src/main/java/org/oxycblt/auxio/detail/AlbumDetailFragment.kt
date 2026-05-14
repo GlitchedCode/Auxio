@@ -263,6 +263,7 @@ class AlbumDetailFragment : DetailFragment<Album, Song>() {
                     )
                 }
                 is PlaylistDecision.New,
+                is PlaylistDecision.NewKarma,
                 is PlaylistDecision.Import,
                 is PlaylistDecision.Rename,
                 is PlaylistDecision.Delete,

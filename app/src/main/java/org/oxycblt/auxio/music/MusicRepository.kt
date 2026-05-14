@@ -34,6 +34,7 @@ import org.oxycblt.auxio.music.shim.WriteOnlyMutableCache
 import org.oxycblt.musikr.Config
 import org.oxycblt.musikr.IndexingProgress
 import org.oxycblt.musikr.Interpretation
+import org.oxycblt.musikr.KarmaPlaylist
 import org.oxycblt.musikr.Library
 import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.Musikr
@@ -161,6 +162,36 @@ interface MusicRepository {
      * @param songs The new [Song]s to be contained in the [Playlist].
      */
     suspend fun rewritePlaylist(playlist: Playlist, songs: List<Song>)
+
+    /**
+     * Create a new [KarmaPlaylist] with the given [Song]s.
+     *
+     * @param name The name of the new [KarmaPlaylist].
+     * @param songs The songs to populate the new [KarmaPlaylist] with.
+     */
+    suspend fun createKarmaPlaylist(name: String, songs: List<Song>)
+
+    /**
+     * Delete a [KarmaPlaylist].
+     *
+     * @param playlist The [KarmaPlaylist] to delete.
+     */
+    suspend fun deleteKarmaPlaylist(playlist: KarmaPlaylist)
+
+    /**
+     * Add [Song]s to a [KarmaPlaylist].
+     *
+     * @param songs The [Song]s to add.
+     * @param playlist The [KarmaPlaylist] to add to.
+     */
+    suspend fun addToKarmaPlaylist(songs: List<Song>, playlist: KarmaPlaylist)
+
+    /**
+     * Adjust the karma of [song] in [playlist] by [delta].
+     *
+     * @return The new karma value, or null if the song was removed from the playlist.
+     */
+    suspend fun adjustKarma(playlist: KarmaPlaylist, song: Song, delta: Int): Int?
 
     /**
      * Request that a music loading operation is started by the current [IndexingWorker]. Does
@@ -315,6 +346,7 @@ constructor(
                 ?: findArtist(uid)
                 ?: findGenre(uid)
                 ?: findPlaylist(uid)
+                ?: findKarmaPlaylist(uid)
         })
 
     override suspend fun createPlaylist(name: String, songs: List<Song>) {
@@ -355,6 +387,39 @@ constructor(
         val newLibrary = library.rewritePlaylist(playlist, songs)
         synchronized(this) { this.library = newLibrary }
         withContext(Dispatchers.Main) { dispatchLibraryChange(device = false, user = true) }
+    }
+
+    override suspend fun createKarmaPlaylist(name: String, songs: List<Song>) {
+        val library = synchronized(this) { library ?: return }
+        L.d("Creating karma playlist $name with ${songs.size} songs")
+        val newLibrary = library.createKarmaPlaylist(name, songs)
+        synchronized(this) { this.library = newLibrary }
+        withContext(Dispatchers.Main) { dispatchLibraryChange(device = false, user = true) }
+    }
+
+    override suspend fun deleteKarmaPlaylist(playlist: KarmaPlaylist) {
+        val library = synchronized(this) { library ?: return }
+        L.d("Deleting karma playlist $playlist")
+        val newLibrary = library.deleteKarmaPlaylist(playlist)
+        synchronized(this) { this.library = newLibrary }
+        withContext(Dispatchers.Main) { dispatchLibraryChange(device = false, user = true) }
+    }
+
+    override suspend fun addToKarmaPlaylist(songs: List<Song>, playlist: KarmaPlaylist) {
+        val library = synchronized(this) { library ?: return }
+        L.d("Adding ${songs.size} songs to karma playlist $playlist")
+        val newLibrary = library.addToKarmaPlaylist(playlist, songs)
+        synchronized(this) { this.library = newLibrary }
+        withContext(Dispatchers.Main) { dispatchLibraryChange(device = false, user = true) }
+    }
+
+    override suspend fun adjustKarma(playlist: KarmaPlaylist, song: Song, delta: Int): Int? {
+        val library = synchronized(this) { library ?: return null }
+        L.d("Adjusting karma for $song in $playlist by $delta")
+        val (newLibrary, newKarma) = library.adjustKarma(playlist, song, delta)
+        synchronized(this) { this.library = newLibrary }
+        withContext(Dispatchers.Main) { dispatchLibraryChange(device = false, user = true) }
+        return newKarma
     }
 
     @Synchronized

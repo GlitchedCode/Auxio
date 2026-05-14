@@ -29,6 +29,7 @@ import org.oxycblt.auxio.list.sort.Sort
 import org.oxycblt.auxio.music.MusicRepository
 import org.oxycblt.auxio.music.PlaylistDecision
 import org.oxycblt.auxio.music.resolve
+import org.oxycblt.musikr.KarmaPlaylist
 import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.Playlist
 import org.oxycblt.musikr.Song
@@ -297,8 +298,9 @@ class PlaylistPickerViewModel @Inject constructor(private val musicRepository: M
     private fun refreshPlaylistChoices(songs: List<Song>) {
         val library = musicRepository.library ?: return
         L.d("Refreshing playlist choices")
+        val all: Collection<Playlist> = library.playlists + library.karmaPlaylists
         _playlistAddChoices.value =
-            Sort(Sort.Mode.ByName, Sort.Direction.ASCENDING).playlists(library.playlists).map {
+            Sort(Sort.Mode.ByName, Sort.Direction.ASCENDING).playlists(all).map {
                 val songSet = it.songs.toSet()
                 PlaylistChoice(it, songs.all(songSet::contains))
             }

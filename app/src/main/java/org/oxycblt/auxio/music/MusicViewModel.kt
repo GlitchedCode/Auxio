@@ -36,6 +36,7 @@ import org.oxycblt.auxio.util.MutableEvent
 import org.oxycblt.musikr.Album
 import org.oxycblt.musikr.Artist
 import org.oxycblt.musikr.Genre
+import org.oxycblt.musikr.KarmaPlaylist
 import org.oxycblt.musikr.Playlist
 import org.oxycblt.musikr.Song
 import org.oxycblt.musikr.playlist.ExportConfig
@@ -162,6 +163,24 @@ constructor(
      *   [Playlist] will not be renamed to the name of the imported playlist.
      * @see ExternalPlaylistManager
      */
+    /**
+     * Create a new [KarmaPlaylist].
+     *
+     * @param name The name of the new playlist. If null, the user will be prompted for one.
+     */
+    fun createKarmaPlaylist(name: String? = null) {
+        if (name != null) {
+            L.d("Creating karma playlist $name")
+            viewModelScope.launch(Dispatchers.IO) {
+                musicRepository.createKarmaPlaylist(name, listOf())
+                _playlistMessage.put(PlaylistMessage.KarmaPlaylistCreated)
+            }
+        } else {
+            L.d("Launching karma playlist creation dialog")
+            _playlistDecision.put(PlaylistDecision.NewKarma)
+        }
+    }
+
     fun importPlaylist(uri: Uri? = null, target: Playlist? = null) {
         if (uri != null) {
             viewModelScope.launch(Dispatchers.IO) {
@@ -284,7 +303,11 @@ constructor(
         if (rude) {
             L.d("Deleting $playlist")
             viewModelScope.launch(Dispatchers.IO) {
+              if (playlist is KarmaPlaylist) {
+                musicRepository.deleteKarmaPlaylist(playlist)
+              } else {
                 musicRepository.deletePlaylist(playlist)
+              }
                 _playlistMessage.put(PlaylistMessage.DeleteSuccess)
             }
         } else {
@@ -347,7 +370,11 @@ constructor(
         if (playlist != null) {
             L.d("Adding ${songs.size} songs to $playlist")
             viewModelScope.launch(Dispatchers.IO) {
-                musicRepository.addToPlaylist(songs, playlist)
+                if (playlist is KarmaPlaylist) {
+                    musicRepository.addToKarmaPlaylist(songs, playlist)
+                } else {
+                    musicRepository.addToPlaylist(songs, playlist)
+                }
                 _playlistMessage.put(PlaylistMessage.AddSuccess)
             }
         } else {
@@ -444,6 +471,11 @@ sealed interface PlaylistDecision {
      * @param songs The [Song]s to add to the chosen [Playlist].
      */
     data class Add(val songs: List<Song>) : PlaylistDecision
+
+    /**
+     * Navigate to a dialog that allows the user to name a new [KarmaPlaylist].
+     */
+    data object NewKarma : PlaylistDecision
 }
 
 sealed interface PlaylistMessage {
@@ -477,6 +509,11 @@ sealed interface PlaylistMessage {
     data object AddSuccess : PlaylistMessage {
         override val stringRes: Int
             get() = R.string.lng_playlist_added
+    }
+
+    data object KarmaPlaylistCreated : PlaylistMessage {
+        override val stringRes: Int
+            get() = R.string.lng_karma_playlist_created
     }
 
     data object ExportSuccess : PlaylistMessage {

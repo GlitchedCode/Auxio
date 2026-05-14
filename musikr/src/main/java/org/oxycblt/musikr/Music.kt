@@ -401,3 +401,19 @@ interface Playlist : MusicParent {
     /** Useful information to quickly obtain a (single) cover for a Genre. */
     val covers: CoverCollection
 }
+
+/**
+ * A karma playlist. Each song carries a [karma] value (1–[MAX_KARMA]) that is decremented on
+ * early skips and restored on completion. When karma reaches 0 the song is removed automatically.
+ */
+interface KarmaPlaylist : Playlist {
+    /** Per-song karma values. Songs not present in this map have max karma. */
+    val karmaMap: Map<Music.UID, Int>
+
+    /** Returns the current karma for [song], or [MAX_KARMA] if it has never been adjusted. */
+    fun karmaFor(song: Song): Int = karmaMap[song.uid] ?: MAX_KARMA
+
+    companion object {
+        const val MAX_KARMA = 10
+    }
+}

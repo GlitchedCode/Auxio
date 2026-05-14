@@ -118,7 +118,7 @@ constructor(
                     albums = if (MusicType.ALBUMS in filters) library.albums else null,
                     artists = if (MusicType.ARTISTS in filters) library.artists else null,
                     genres = if (MusicType.GENRES in filters) library.genres else null,
-                    playlists = if (MusicType.PLAYLISTS in filters) library.playlists else null,
+                    playlists = if (MusicType.PLAYLISTS in filters) library.playlists + library.karmaPlaylists else null,
                 )
             } else {
                 SearchEngine.Items(
@@ -126,7 +126,7 @@ constructor(
                     albums = library.albums,
                     artists = library.artists,
                     genres = library.genres,
-                    playlists = library.playlists,
+                    playlists = library.playlists + library.karmaPlaylists,
                 )
             }
 

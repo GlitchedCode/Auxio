@@ -287,6 +287,7 @@ class ArtistDetailFragment : DetailFragment<Artist, Music>() {
                     )
                 }
                 is PlaylistDecision.New,
+                is PlaylistDecision.NewKarma,
                 is PlaylistDecision.Import,
                 is PlaylistDecision.Rename,
                 is PlaylistDecision.Export,
